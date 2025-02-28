@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, useScroll, useTransform } from 'framer-motion';
-import { ArrowRight, Upload, CheckCircle, Download, Zap } from 'lucide-react';
+import { ArrowRight, Upload, CheckCircle, Download, Zap, MousePointer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
@@ -13,6 +13,22 @@ const Index = () => {
   const { scrollYProgress } = useScroll();
   const containerRef = useRef<HTMLDivElement>(null);
   const [isModelLoaded, setIsModelLoaded] = useState(false);
+  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+  
+  // Track mouse position for parallax effects
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      setMousePosition({
+        x: e.clientX / window.innerWidth - 0.5,
+        y: e.clientY / window.innerHeight - 0.5
+      });
+    };
+    
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+    };
+  }, []);
   
   // Intersection Observer to reveal elements on scroll
   useEffect(() => {
@@ -36,6 +52,8 @@ const Index = () => {
 
   const opacity = useTransform(scrollYProgress, [0, 0.1], [1, 0]);
   const scale = useTransform(scrollYProgress, [0, 0.1], [1, 0.9]);
+  const rotate = useTransform(scrollYProgress, [0, 1], [0, 360]);
+  const y = useTransform(scrollYProgress, [0, 1], [0, -100]);
   
   return (
     <div className="min-h-screen bg-black text-white" ref={containerRef}>
@@ -51,8 +69,24 @@ const Index = () => {
       {/* Hero Section */}
       <motion.section 
         className="pt-32 pb-20 px-6 md:px-16 relative overflow-hidden"
-        style={{ opacity, scale }}
+        style={{ 
+          opacity, 
+          scale,
+          y: useTransform(scrollYProgress, [0, 0.2], [0, 50])
+        }}
       >
+        {/* Parallax Background Elements */}
+        <motion.div 
+          className="absolute top-0 left-0 w-full h-full pointer-events-none"
+          style={{
+            x: mousePosition.x * 20,
+            y: mousePosition.y * 20
+          }}
+        >
+          <div className="absolute top-1/4 left-1/4 w-64 h-64 rounded-full bg-blue-600/10 blur-3xl"></div>
+          <div className="absolute bottom-1/4 right-1/4 w-80 h-80 rounded-full bg-purple-600/10 blur-3xl"></div>
+        </motion.div>
+        
         {/* Gradient Background */}
         <div className="absolute inset-0 bg-gradient-to-b from-blue-900/30 via-purple-900/20 to-black"></div>
         
@@ -107,6 +141,19 @@ const Index = () => {
                 </Button>
               </Link>
             </motion.div>
+            
+            {/* Scroll indicator */}
+            <motion.div 
+              className="mt-16 flex justify-center"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: [0, 1, 0] }}
+              transition={{ delay: 1.5, duration: 2, repeat: Infinity }}
+            >
+              <div className="flex flex-col items-center">
+                <p className="text-sm text-gray-400 mb-2">Scroll to explore</p>
+                <MousePointer className="h-6 w-6 text-gray-400 animate-bounce" />
+              </div>
+            </motion.div>
           </motion.div>
         </div>
       </motion.section>
@@ -127,11 +174,14 @@ const Index = () => {
             <span className="inline-block py-1 px-3 rounded-full text-sm bg-blue-900/50 text-blue-200 mb-4">
               Interactive Demo
             </span>
-            <h2 className="text-3xl md:text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-300 to-purple-400">
+            <motion.h2 
+              className="text-3xl md:text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-300 to-purple-400"
+              style={{ rotate }}
+            >
               See It In Action
-            </h2>
+            </motion.h2>
             <p className="mt-4 text-lg text-gray-300 max-w-2xl mx-auto">
-              Drag to rotate, scroll to zoom. Experience a sample of what our AI can generate.
+              Drag to rotate, scroll to zoom. Watch how the model transforms as you scroll.
             </p>
           </div>
           
@@ -141,6 +191,10 @@ const Index = () => {
             whileInView={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
             viewport={{ once: true }}
+            style={{
+              x: useTransform(scrollYProgress, [0.3, 0.5], [100, 0]),
+              rotateY: useTransform(scrollYProgress, [0.3, 0.5], [30, 0])
+            }}
           >
             {!isModelLoaded && (
               <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-blue-900/50 to-purple-900/50 z-10">
@@ -151,8 +205,7 @@ const Index = () => {
               </div>
             )}
             <ThreeDemoViewer 
-              modelPath="/models/sample.obj"
-              materialPath="/models/sample.mtl"
+              modelPath="/models/sample.glb"
               onLoad={() => setIsModelLoaded(true)}
             />
           </motion.div>
@@ -178,7 +231,13 @@ const Index = () => {
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 relative">
             {/* Line connecting steps */}
-            <div className="hidden md:block absolute top-1/2 left-0 right-0 h-0.5 bg-gradient-to-r from-blue-500 to-purple-500 transform -translate-y-1/2 z-0"></div>
+            <motion.div 
+              className="hidden md:block absolute top-1/2 left-0 right-0 h-0.5 bg-gradient-to-r from-blue-500 to-purple-500 transform -translate-y-1/2 z-0"
+              style={{
+                scaleX: useTransform(scrollYProgress, [0.4, 0.6], [0, 1]),
+                transformOrigin: "left"
+              }}
+            />
             
             <motion.div 
               className="relative z-10 bg-gradient-to-br from-blue-900/20 to-purple-900/20 backdrop-blur-sm rounded-xl overflow-hidden border border-white/10"
@@ -186,11 +245,16 @@ const Index = () => {
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
               viewport={{ once: true }}
+              whileHover={{ y: -10, transition: { duration: 0.2 } }}
             >
               <div className="p-6">
-                <div className="w-14 h-14 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg shadow-blue-500/30">
+                <motion.div 
+                  className="w-14 h-14 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg shadow-blue-500/30"
+                  whileHover={{ scale: 1.1, rotate: 5 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 10 }}
+                >
                   <Upload className="h-7 w-7 text-white" />
-                </div>
+                </motion.div>
                 <div className="absolute top-6 right-6 bg-blue-900/80 rounded-full w-8 h-8 flex items-center justify-center">
                   <span className="text-white font-medium">1</span>
                 </div>
@@ -207,11 +271,16 @@ const Index = () => {
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.2 }}
               viewport={{ once: true }}
+              whileHover={{ y: -10, transition: { duration: 0.2 } }}
             >
               <div className="p-6">
-                <div className="w-14 h-14 bg-purple-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg shadow-purple-500/30">
+                <motion.div 
+                  className="w-14 h-14 bg-purple-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg shadow-purple-500/30"
+                  whileHover={{ scale: 1.1, rotate: 5 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 10 }}
+                >
                   <Zap className="h-7 w-7 text-white" />
-                </div>
+                </motion.div>
                 <div className="absolute top-6 right-6 bg-purple-900/80 rounded-full w-8 h-8 flex items-center justify-center">
                   <span className="text-white font-medium">2</span>
                 </div>
@@ -228,11 +297,16 @@ const Index = () => {
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.4 }}
               viewport={{ once: true }}
+              whileHover={{ y: -10, transition: { duration: 0.2 } }}
             >
               <div className="p-6">
-                <div className="w-14 h-14 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg shadow-blue-500/30">
+                <motion.div 
+                  className="w-14 h-14 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg shadow-blue-500/30"
+                  whileHover={{ scale: 1.1, rotate: 5 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 10 }}
+                >
                   <Download className="h-7 w-7 text-white" />
-                </div>
+                </motion.div>
                 <div className="absolute top-6 right-6 bg-blue-900/80 rounded-full w-8 h-8 flex items-center justify-center">
                   <span className="text-white font-medium">3</span>
                 </div>
@@ -255,9 +329,12 @@ const Index = () => {
             <span className="inline-block py-1 px-3 rounded-full text-sm bg-blue-900/50 text-blue-200 mb-4">
               Advanced Capabilities
             </span>
-            <h2 className="text-3xl md:text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-300 to-purple-400">
+            <motion.h2 
+              className="text-3xl md:text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-300 to-purple-400"
+              style={{ y }}
+            >
               Powerful Features
-            </h2>
+            </motion.h2>
             <p className="mt-4 text-lg text-gray-300 max-w-2xl mx-auto">
               Everything you need to create stunning 3D models
             </p>
@@ -299,6 +376,7 @@ const Index = () => {
             transition={{ duration: 0.8 }}
             viewport={{ once: true }}
             className="rounded-2xl overflow-hidden"
+            whileHover={{ scale: 1.02 }}
           >
             <div className="p-12 md:p-16 bg-gradient-to-r from-blue-900/40 to-purple-900/40 backdrop-blur-md border border-white/10">
               <div className="text-center">
@@ -308,13 +386,17 @@ const Index = () => {
                 <p className="mt-6 text-xl text-gray-300 max-w-2xl mx-auto">
                   Join thousands of creators who are bringing their ideas to life in three dimensions.
                 </p>
-                <div className="mt-10">
+                <motion.div 
+                  className="mt-10"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
                   <Link to="/signup">
                     <Button size="lg" className="rounded-full px-10 py-6 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 border-0 text-white text-lg">
                       Get Started For Free
                     </Button>
                   </Link>
-                </div>
+                </motion.div>
                 <p className="mt-4 text-sm text-gray-400">
                   No credit card required. Start with 3 free models.
                 </p>

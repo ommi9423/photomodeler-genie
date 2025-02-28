@@ -10,19 +10,22 @@ import { motion } from 'framer-motion';
 interface ThreeDemoViewerProps {
   modelPath: string;
   materialPath?: string;
+  onLoad?: () => void;
 }
 
-const ThreeDemoViewer = ({ modelPath, materialPath }: ThreeDemoViewerProps) => {
+const ThreeDemoViewer = ({ modelPath, materialPath, onLoad }: ThreeDemoViewerProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const scrollYRef = useRef(0);
+  const modelRef = useRef<THREE.Object3D | null>(null);
 
   useEffect(() => {
     if (!containerRef.current) return;
     
     // Scene setup
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xf5f5f5);
+    scene.background = new THREE.Color(0x000000);
     
     // Camera setup
     const camera = new THREE.PerspectiveCamera(
@@ -34,23 +37,54 @@ const ThreeDemoViewer = ({ modelPath, materialPath }: ThreeDemoViewerProps) => {
     camera.position.z = 5;
     
     // Renderer setup
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(containerRef.current.clientWidth, containerRef.current.clientHeight);
     renderer.setPixelRatio(window.devicePixelRatio);
     containerRef.current.appendChild(renderer.domElement);
     
-    // Lighting
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+    // Add lighting
+    const ambientLight = new THREE.AmbientLight(0x404040, 2);
     scene.add(ambientLight);
     
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
     directionalLight.position.set(1, 1, 1);
     scene.add(directionalLight);
+
+    const pointLight = new THREE.PointLight(0x3b82f6, 2);
+    pointLight.position.set(0, 2, 3);
+    scene.add(pointLight);
+
+    const pointLight2 = new THREE.PointLight(0x8b5cf6, 2);
+    pointLight2.position.set(0, -2, -3);
+    scene.add(pointLight2);
     
     // Controls
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
+    controls.autoRotate = true;
+    controls.autoRotateSpeed = 1;
+    
+    // Add particle background
+    const particlesGeometry = new THREE.BufferGeometry();
+    const particlesCount = 2000;
+    const posArray = new Float32Array(particlesCount * 3);
+    
+    for (let i = 0; i < particlesCount * 3; i++) {
+      posArray[i] = (Math.random() - 0.5) * 10;
+    }
+    
+    particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+    
+    const particlesMaterial = new THREE.PointsMaterial({
+      size: 0.02,
+      color: 0xffffff,
+      transparent: true,
+      opacity: 0.8,
+    });
+    
+    const particlesMesh = new THREE.Points(particlesGeometry, particlesMaterial);
+    scene.add(particlesMesh);
     
     // Determine file extension to use appropriate loader
     const fileExtension = modelPath.split('.').pop()?.toLowerCase();
@@ -120,12 +154,16 @@ const ThreeDemoViewer = ({ modelPath, materialPath }: ThreeDemoViewerProps) => {
       object.position.y -= center.y;
       object.position.z -= center.z;
       
+      // Save reference to model for scroll animations
+      modelRef.current = object;
       scene.add(object);
       setLoading(false);
+      
+      // Call onLoad callback if provided
+      if (onLoad) onLoad();
     };
     
     const onProgress = (xhr: ProgressEvent) => {
-      // You could add a more detailed loading progress here
       console.log(`${(xhr.loaded / xhr.total * 100).toFixed(0)}% loaded`);
     };
     
@@ -138,9 +176,31 @@ const ThreeDemoViewer = ({ modelPath, materialPath }: ThreeDemoViewerProps) => {
     // Load the model
     loadModel();
     
+    // Scroll handler for animations
+    const handleScroll = () => {
+      scrollYRef.current = window.scrollY;
+    };
+    
+    window.addEventListener('scroll', handleScroll);
+    
     // Animation loop
     const animate = () => {
       requestAnimationFrame(animate);
+      
+      // Animate particles based on scroll
+      particlesMesh.rotation.y += 0.0005;
+      
+      // Apply scroll-based animations to model
+      if (modelRef.current) {
+        // Rotate model based on scroll position
+        const normalizedScroll = scrollYRef.current / (document.body.scrollHeight - window.innerHeight);
+        modelRef.current.rotation.y = normalizedScroll * Math.PI * 2;
+        
+        // Add a small wobble effect
+        const wobble = Math.sin(Date.now() * 0.001) * 0.05;
+        modelRef.current.rotation.z = wobble;
+      }
+      
       controls.update();
       renderer.render(scene, camera);
     };
@@ -163,8 +223,9 @@ const ThreeDemoViewer = ({ modelPath, materialPath }: ThreeDemoViewerProps) => {
         containerRef.current.removeChild(renderer.domElement);
       }
       window.removeEventListener('resize', handleResize);
+      window.removeEventListener('scroll', handleScroll);
     };
-  }, [modelPath, materialPath]);
+  }, [modelPath, materialPath, onLoad]);
   
   return (
     <motion.div 
@@ -175,12 +236,12 @@ const ThreeDemoViewer = ({ modelPath, materialPath }: ThreeDemoViewerProps) => {
       transition={{ duration: 0.5, delay: 0.2 }}
     >
       {loading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-black"></div>
+        <div className="absolute inset-0 flex items-center justify-center bg-transparent">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
         </div>
       )}
       {error && (
-        <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
+        <div className="absolute inset-0 flex items-center justify-center bg-transparent">
           <div className="text-red-500 text-center p-4">
             <p className="font-semibold">Error</p>
             <p>{error}</p>
