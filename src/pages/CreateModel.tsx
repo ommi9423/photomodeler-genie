@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import UploadProgress from '@/components/UploadProgress';
+import { uploadImagesForReconstruction } from '@/services/reconstructionService';
 
 const CreateModel = () => {
   const [modelName, setModelName] = useState('');
@@ -112,56 +113,45 @@ const CreateModel = () => {
     
     setIsUploading(true);
     
-    // Simulated upload and processing flow
-    const steps = [
-      { message: "Uploading images...", duration: 2000 },
-      { message: "Detecting features...", duration: 3000 },
-      { message: "Estimating depth...", duration: 2500 },
-      { message: "Generating point cloud...", duration: 3000 },
-      { message: "Reconstructing mesh...", duration: 4000 },
-      { message: "Applying textures...", duration: 3000 },
-      { message: "Finalizing model...", duration: 2000 }
-    ];
-    
-    let cumulativeTime = 0;
-    const totalTime = steps.reduce((sum, step) => sum + step.duration, 0);
-    
-    for (let i = 0; i < steps.length; i++) {
-      const step = steps[i];
-      setProgressStatus(step.message);
-      
-      const startProgress = (cumulativeTime / totalTime) * 100;
-      const targetProgress = ((cumulativeTime + step.duration) / totalTime) * 100;
-      
-      const startTime = Date.now();
-      const incrementInterval = 100; // Update every 100ms
-      
-      const updateProgress = () => {
-        const elapsed = Date.now() - startTime;
-        if (elapsed >= step.duration) {
-          setProgress(targetProgress);
-          return;
+    try {
+      // Use our reconstruction service to process the images
+      const result = await uploadImagesForReconstruction(
+        images, 
+        modelName,
+        (progress, status) => {
+          setProgress(progress);
+          setProgressStatus(status);
         }
-        
-        const newProgress = startProgress + ((elapsed / step.duration) * (targetProgress - startProgress));
-        setProgress(newProgress);
-        setTimeout(updateProgress, incrementInterval);
-      };
+      );
       
-      updateProgress();
-      await new Promise(resolve => setTimeout(resolve, step.duration));
-      cumulativeTime += step.duration;
+      if (result.status === 'completed') {
+        toast({
+          title: "Model created successfully",
+          description: "Your 3D model has been created and is ready to view.",
+        });
+        
+        // In a real app, you would store the model in your database
+        // and then redirect to the model page with the ID
+        setTimeout(() => {
+          navigate('/dashboard');
+        }, 1000);
+      } else {
+        toast({
+          title: "Model creation failed",
+          description: "There was an error creating your 3D model. Please try again.",
+          variant: "destructive"
+        });
+        setIsUploading(false);
+      }
+    } catch (error) {
+      console.error("Error during model creation:", error);
+      toast({
+        title: "Error",
+        description: "There was an error processing your request. Please try again.",
+        variant: "destructive"
+      });
+      setIsUploading(false);
     }
-    
-    // Done processing
-    toast({
-      title: "Model created successfully",
-      description: "Your 3D model has been created and is ready to view.",
-    });
-    
-    setTimeout(() => {
-      navigate('/dashboard');
-    }, 1000);
   };
 
   return (
